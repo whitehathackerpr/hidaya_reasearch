@@ -60,6 +60,10 @@ code([
     "import os, time, warnings\n",
     "warnings.filterwarnings('ignore')\n",
     "\n",
+    "# TabPFN environment config\n",
+    "os.environ['TABPFN_TOKEN'] = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiM2M4YTJkZmMtMDc4OS00MzMyLTgxMTktMTBkMDhmZmRhNWZjIiwiZXhwIjoxODA4MjQ2NDI0fQ.vukjwbq2wktt0XMcc3yYvZvJ0mK-q_OBUZJgssiqlgY'\n",
+    "os.environ['TABPFN_ALLOW_CPU_LARGE_DATASET'] = '1'\n",
+    "\n",
     "import pandas as pd\n",
     "import numpy as np\n",
     "import matplotlib.pyplot as plt\n",
@@ -85,6 +89,7 @@ code([
     "\n",
     "from xgboost import XGBClassifier\n",
     "from ctgan import CTGAN\n",
+    "from tabpfn import TabPFNClassifier\n",
     "import optuna\n",
     "import shap\n",
     "\n",
@@ -506,6 +511,55 @@ code([
     "disp = ConfusionMatrixDisplay(cm, display_labels=[f'Stage {c}' for c in class_names])\n",
     "disp.plot(ax=ax, cmap='Blues', colorbar=False)\n",
     "ax.set_title(f'Confusion Matrix — {best_model_name} (Tuned)', fontsize=14, fontweight='bold')\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+])
+
+# ═══════════════════════════════════════════════════════════════════
+# CELL: TabPFN Comparison
+# ═══════════════════════════════════════════════════════════════════
+md([
+    "### §7.2 — TabPFN Baseline Comparison\n",
+    "\n",
+    "**TabPFN** is a pre-trained transformer model for tabular data. We train it on the\n",
+    "CTGAN-balanced training data and compare its performance against our tuned ensemble\n",
+    "to see if a foundation model can match hand-tuned classifiers on this dataset."
+])
+
+code([
+    "# Train TabPFN on the balanced data from §4.1\n",
+    "tabpfn = TabPFNClassifier(device='cpu', ignore_pretraining_limits=True)\n",
+    "tabpfn.fit(X_balanced, y_balanced)\n",
+    "\n",
+    "# Predict on test set\n",
+    "y_pred_tab = tabpfn.predict(X_test)\n",
+    "y_prob_tab = tabpfn.predict_proba(X_test)\n",
+    "\n",
+    "f1_tab  = f1_score(y_test, y_pred_tab, average='weighted')\n",
+    "rec_tab = recall_score(y_test, y_pred_tab, average='weighted')\n",
+    "pre_tab = precision_score(y_test, y_pred_tab, average='weighted')\n",
+    "auc_tab = roc_auc_score(y_test, y_prob_tab, multi_class='ovr', average='weighted')\n",
+    "\n",
+    "# Side-by-side comparison table\n",
+    "print(f'{\"METRIC\":<22} {best_model_name + \" (Tuned)\":<22} {\"TabPFN\":<22}')\n",
+    "print('-' * 66)\n",
+    "print(f'{\"F1-Score (weighted)\":<22} {f1_w:<22.4f} {f1_tab:<22.4f}')\n",
+    "print(f'{\"Recall (weighted)\":<22} {rec_w:<22.4f} {rec_tab:<22.4f}')\n",
+    "print(f'{\"Precision (weighted)\":<22} {pre_w:<22.4f} {pre_tab:<22.4f}')\n",
+    "print(f'{\"ROC-AUC (weighted)\":<22} {auc_w:<22.4f} {auc_tab:<22.4f}')\n",
+    "\n",
+    "# Side-by-side confusion matrices\n",
+    "fig, axes = plt.subplots(1, 2, figsize=(14, 6))\n",
+    "\n",
+    "cm1 = confusion_matrix(y_test, y_pred)\n",
+    "ConfusionMatrixDisplay(cm1, display_labels=[f'Stage {c}' for c in class_names]).plot(ax=axes[0], cmap='Blues', colorbar=False)\n",
+    "axes[0].set_title(f'{best_model_name} (Tuned)', fontweight='bold')\n",
+    "\n",
+    "cm2 = confusion_matrix(y_test, y_pred_tab)\n",
+    "ConfusionMatrixDisplay(cm2, display_labels=[f'Stage {c}' for c in class_names]).plot(ax=axes[1], cmap='Greens', colorbar=False)\n",
+    "axes[1].set_title('TabPFN', fontweight='bold')\n",
+    "\n",
+    "plt.suptitle('Confusion Matrices — Tuned Ensemble vs TabPFN', fontsize=15, fontweight='bold')\n",
     "plt.tight_layout()\n",
     "plt.show()"
 ])
