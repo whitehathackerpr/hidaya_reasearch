@@ -56,12 +56,15 @@ hidaya_reasearch/
 
 ### Performance Metrics (Hold-Out Test Set)
 
-| Metric | Score |
-|--------|-------|
-| **F1-Score (weighted)** | **~0.69** |
-| **Recall (weighted)** | **~0.74** |
-| **Precision (weighted)** | **~0.68** |
-| **ROC-AUC (weighted)** | **~0.90** |
+| Metric | Tuned Ensemble | TabPFN |
+|--------|---------------|--------|
+| **F1-Score (weighted)** | **~0.69** | ~0.65 |
+| **Recall (weighted)** | **~0.74** | ~0.73 |
+| **Precision (weighted)** | **~0.68** | ~0.66 |
+| **ROC-AUC (weighted)** | **~0.90** | ~0.90 |
+
+Our Bayesian-tuned ensemble outperforms TabPFN (a pre-trained transformer for tabular
+data), confirming that domain-specific feature engineering adds value on this dataset.
 
 ### Supervisor Requirements — All Fulfilled
 

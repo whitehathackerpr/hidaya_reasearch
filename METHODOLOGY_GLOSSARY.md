@@ -98,6 +98,16 @@ Builds trees sequentially — each new tree focuses on correcting the errors of 
 previous trees. Uses gradient descent to minimise a loss function. Powerful but more
 prone to overfitting than Random Forest.
 
+### TabPFN (Tabular Prior-Data Fitted Network)
+A pre-trained transformer model for tabular classification (published at ICLR 2023).
+Unlike traditional models that learn from scratch on your data, TabPFN was pre-trained
+on millions of synthetic classification datasets. It performs **in-context learning** —
+you feed it your training data and test point in a single forward pass, and it outputs
+predictions without any hyperparameter tuning or iterative training. Think of it as
+"GPT for spreadsheets." We use TabPFN as a benchmark: if our carefully tuned ensemble
+outperforms TabPFN, it validates that our feature engineering and tuning add genuine
+value beyond what a general-purpose model can achieve out of the box.
+
 ### Recursive Feature Elimination (RFE)
 An iterative feature selection algorithm. It trains a model, ranks features by
 importance, removes the least important feature, and repeats. After enough rounds,
