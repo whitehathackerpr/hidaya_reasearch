@@ -1,0 +1,14 @@
+TABPFN-Workflow (As per the Supervisor)
+1. Best Class balancing technique (But starting with SMOTE (Default and Custom), then SMOTENC, Class Weight Balance, Random over sampler, Random Over Sampler, then if they fail that is when we should think about GAN: CTGAN or WGAN).
+2. Use Bayesian Optimisation for Hyperparameter tuning (Compare results of non-tuned models to a tuned one).
+3. Use k-fold cross-validation.
+4. Generate training vs. validation loss convergence curves.
+5. Test the model, and produce evaluation metrics:
+f1-score
+Recall
+Precision
+ROC-AUC
+6. If model still has overfitting issues:
+Think about regularization techniques
+7. Plot Feature Importance graphs
+8. If the metrics are okay, then move to the SHAP-dependency plots
