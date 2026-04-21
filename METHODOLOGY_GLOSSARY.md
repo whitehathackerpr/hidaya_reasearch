@@ -199,7 +199,23 @@ scores above 4.0 strongly push toward Stage 5, but below 3.0 have no effect."
 Measures how much each feature reduces impurity (disorder) across all splits in all
 trees. Features with higher importance are used more frequently and produce bigger
 reductions in classification error. This is a fast, built-in measure but does not
-capture feature interactions the way SHAP does.
+capture feature interactions the way SHAP does. Only available for tree-based models
+(RandomForest, ExtraTrees, XGBoost).
+
+### Permutation Importance
+A **model-agnostic** technique that works with any classifier, including neural models
+like TabPFN that do not have built-in importance scores. The method works as follows:
+
+1. Record the model's baseline F1-Weighted on the test set.
+2. For each feature, randomly shuffle that column's values across all test samples.
+3. Re-evaluate the model. The drop in F1-Weighted measures how much the model relied
+   on that feature.
+4. Repeat 30 times and average for statistical stability.
+
+A large drop means the feature is important; no drop means the feature is irrelevant.
+This is the standard scikit-learn approach for models without Gini importance
+(`sklearn.inspection.permutation_importance`). We use this as the **primary** feature
+importance method for TabPFN.
 
 ---
 

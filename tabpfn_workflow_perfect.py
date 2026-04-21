@@ -50,6 +50,7 @@ from sklearn.metrics import (
 )
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
 from sklearn.feature_selection import RFE
+from sklearn.inspection import permutation_importance
 
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.base import BaseSampler
@@ -387,11 +388,43 @@ plt.savefig(os.path.join(OUTPUT_DIR, '02_confusion_matrices.png'), bbox_inches='
 plt.close()
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 7: FEATURE IMPORTANCE                                           ║
+# ║  STEP 7: FEATURE IMPORTANCE (TabPFN — Permutation Importance)         ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 print("\n  [7/8] Generating Feature Importances...")
 clf_only = final_pipe.named_steps['clf']
 
+# ── 7a. TabPFN Permutation Importance (PRIMARY) ─────────────────────────
+# TabPFN is a neural foundation model — it has no built-in .feature_importances_.
+# Permutation importance measures the drop in F1-Weighted when each feature is
+# randomly shuffled, giving a model-agnostic estimate of each feature's value.
+print("        Computing TabPFN Permutation Importance on test set...")
+perm_result = permutation_importance(
+    tuned_tabpfn, X_test, y_test,
+    n_repeats=30, random_state=42,
+    scoring='f1_weighted', n_jobs=1
+)
+tabpfn_imp = pd.Series(
+    perm_result.importances_mean, index=feature_cols
+).sort_values(ascending=True)
+tabpfn_imp_std = pd.Series(
+    perm_result.importances_std, index=feature_cols
+).sort_values(ascending=True)
+
+fig, ax = plt.subplots(figsize=(12, max(6, len(tabpfn_imp) * 0.5)))
+colors = plt.cm.magma(np.linspace(0.2, 0.8, len(tabpfn_imp)))
+tabpfn_imp.plot(
+    kind='barh', ax=ax, xerr=tabpfn_imp_std.reindex(tabpfn_imp.index),
+    color=colors, edgecolor='black', linewidth=0.5, capsize=3
+)
+ax.set_title('Feature Importance — TabPFN (Permutation Importance)', fontsize=15, fontweight='bold')
+ax.set_xlabel('Mean F1-Weighted Decrease When Shuffled', fontweight='bold')
+ax.axvline(x=0, color='grey', linestyle='--', linewidth=0.8)
+plt.tight_layout()
+plt.savefig(os.path.join(OUTPUT_DIR, '03_tabpfn_feature_importance.png'), bbox_inches='tight')
+plt.close()
+print("        [SAVED] 03_tabpfn_feature_importance.png")
+
+# ── 7b. Extra Trees Gini Importance (SECONDARY/COMPARISON) ──────────────
 importances = None
 if hasattr(clf_only, 'feature_importances_'):
     importances = pd.Series(clf_only.feature_importances_, index=selected_feature_names).sort_values(ascending=True)
@@ -399,10 +432,10 @@ if hasattr(clf_only, 'feature_importances_'):
     fig, ax = plt.subplots(figsize=(12, max(6, len(importances) * 0.4)))
     colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(importances)))
     importances.plot(kind='barh', ax=ax, color=colors, edgecolor='black', linewidth=0.5)
-    ax.set_title(f'RFE Surviving Features Importance ({best_baseline_name})', fontsize=15, fontweight='bold')
+    ax.set_title(f'Feature Importance — {best_baseline_name} (Gini Importance, RFE Selected)', fontsize=15, fontweight='bold')
     ax.set_xlabel('Relative Importance')
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, '03_feature_importance.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(OUTPUT_DIR, '03b_extratrees_feature_importance.png'), bbox_inches='tight')
     plt.close()
 
     importances = pd.Series(clf_only.feature_importances_, index=selected_feature_names).sort_values(ascending=False)

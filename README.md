@@ -41,7 +41,8 @@ hidaya_reasearch/
 |-- results_perfect/                          # Generated plots & figures
 |   |-- 01_ctgan_balancing.png                #   Class distribution before/after
 |   |-- 02_confusion_matrices.png             #   Confusion matrix heatmap
-|   |-- 03_feature_importance.png             #   Gini importance bar chart
+|   |-- 03_tabpfn_feature_importance.png      #   TabPFN permutation importance (primary)
+|   |-- 03b_extratrees_feature_importance.png  #   Ensemble Gini importance (comparison)
 |   |-- 04_learning_convergence_curve.png     #   Train vs validation convergence
 |   |-- 05_shap_summary.png                   #   SHAP summary (all classes)
 |   |-- 06_shap_dependency_*.png              #   SHAP dependency plots (top features)
@@ -76,7 +77,7 @@ data), confirming that domain-specific feature engineering adds value on this da
 | 4 | Training vs validation convergence curves | Done | §8 |
 | 5 | Evaluation metrics (F1, Recall, Precision, ROC-AUC) | Done | §7 |
 | 6 | Regularisation / overfitting analysis | Done | §8 |
-| 7 | Feature importance graphs | Done | §9 |
+| 7 | Feature importance graphs (TabPFN permutation + ensemble Gini) | Done | §9, §9.1 |
 | 8 | SHAP dependency plots | Done | §10 |
 
 ---

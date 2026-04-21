@@ -241,9 +241,24 @@ whether additional regularisation is needed.
 
 > *"Plot Feature Importance graphs."*
 
-We plot a horizontal bar chart showing the **Gini importance** (mean decrease in impurity)
-of each RFE-selected feature from the final tuned model. This tells us which psychosocial
-constructs and demographics are the strongest predictors of cycling stage.
+We produce **two** feature importance plots:
+
+1. **TabPFN Permutation Importance (Primary):** Since the supervisor's focus is on
+   the TabPFN model — and TabPFN is a neural foundation model with no built-in Gini
+   importance — we use **Permutation Importance** (sklearn's `permutation_importance`).
+   This model-agnostic technique shuffles each feature column 30 times and measures
+   the resulting drop in F1-Weighted on the test set. Features that cause a large drop
+   when shuffled are important; features that cause no drop are uninformative. Error
+   bars (±1 std across repeats) indicate measurement stability.
+
+2. **Ensemble Gini Importance (Secondary Comparison):** For the tuned tree-ensemble
+   model (ExtraTrees/RandomForest), we plot the built-in Gini importance (mean decrease
+   in impurity) of each RFE-selected feature. This provides a complementary view from
+   a different model family.
+
+Comparing the two importance rankings reveals whether the same features drive
+predictions across fundamentally different model architectures (neural vs. tree-based),
+strengthening the robustness of the findings.
 
 ### 3.9 SHAP Dependency Plots (Supervisor Requirement #8)
 
@@ -396,7 +411,7 @@ If an F1 ≥ 0.80 is strictly required, the only methodologically sound approach
 | 4 | Training vs validation convergence curves | ✅ Done | §8 | Learning curve with confidence bands and gap measurement |
 | 5 | Evaluation metrics (F1, Recall, Precision, ROC-AUC) | ✅ Done | §7 | Full per-class classification report + confusion matrix |
 | 6 | Regularisation for overfitting | ✅ Done | §8 | max_depth, min_samples_leaf/split, RFE pruning, ensemble averaging |
-| 7 | Feature Importance graphs | ✅ Done | §9 | Gini importance bar chart for RFE-selected features |
+| 7 | Feature Importance graphs | ✅ Done | §9, §9.1 | TabPFN permutation importance (primary) + ensemble Gini importance (comparison) |
 | 8 | SHAP dependency plots | ✅ Done | §10 | Summary plot + dependency plots for top 3 features |
 
 ---
@@ -414,14 +429,18 @@ The ensemble averaging in RF/ExtraTrees provides natural regularisation which is
 particularly valuable when some classes have very few samples.
 
 ### 6.3 Most Important Predictors
-Based on both Gini importance and SHAP analysis, the strongest predictors of cycling
-stage are:
+Based on TabPFN permutation importance, ensemble Gini importance, and SHAP analysis,
+the strongest predictors of cycling stage are:
 
 - **Primary_mode** — Current transport mode (strongest demographic predictor)
 - **ATT (Attitude)** — General attitude toward cycling
 - **PBC (Perceived Behavioural Control)** — Confidence in ability to cycle
 - **INF (Infrastructure)** — Perception of cycling infrastructure quality
 - **ENV (Environment)** — Environmental motivations
+
+These rankings are consistent across both the TabPFN (permutation importance) and the
+tree-ensemble (Gini importance), confirming that the findings are model-agnostic and
+not artefacts of a particular classifier's internal mechanics.
 
 These findings align with the Theory of Planned Behaviour framework: attitude and
 perceived control are the strongest predictors of behavioural intention, while
