@@ -151,6 +151,9 @@ df = pd.read_csv(DATA_FILE)
 if 'cycling_stage' in df.columns:
     target_col = 'cycling_stage'
     df = df[df["cycling_stage"] != 6].dropna().reset_index(drop=True)
+    # MAP 5 CLASSES TO 3
+    mapping = {1: 'Stage 1', 2: 'Stages 2+3', 3: 'Stages 2+3', 4: 'Stages 4+5', 5: 'Stages 4+5'}
+    df[target_col] = df[target_col].map(mapping)
 else:
     target_col = df.columns[-1]
 
@@ -225,18 +228,8 @@ models = {
     'XGBoost + RFE': ImbPipeline([
         ('sampler', fast_cv_sampler),
         ('rfe', rfe_selector),
-        ('clf', XGBClassifier(eval_metric='logloss', random_state=42, use_label_encoder=False))
-    ]),
-    'ExtraTrees + RFE': ImbPipeline([
-        ('sampler', fast_cv_sampler),
-        ('rfe', rfe_selector),
-        ('clf', ExtraTreesClassifier(n_estimators=200, random_state=42))
-    ]),
-    'RandomForest + RFE': ImbPipeline([
-        ('sampler', fast_cv_sampler),
-        ('rfe', rfe_selector),
-        ('clf', RandomForestClassifier(n_estimators=200, random_state=42))
-    ]),
+        ('clf', XGBClassifier(eval_metric='mlogloss', random_state=42, use_label_encoder=False))
+    ])
 }
 
 cv_results = {}
@@ -266,29 +259,16 @@ print(f"        [BEST] BASELINE: {best_baseline_name} (CV F1={best_baseline_f1:.
 print(f"\n  [4/8] Bayesian Hyperparameter Tuning of {best_baseline_name}...")
 
 def proper_objective(trial):
-    is_xgb = "XGBoost" in best_baseline_name
-    
-    if is_xgb:
-        clf = XGBClassifier(
-            n_estimators=trial.suggest_int('n_estimators', 100, 300),
-            max_depth=trial.suggest_int('max_depth', 3, 8),
-            learning_rate=trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
-            subsample=trial.suggest_float('subsample', 0.6, 1.0),
-            colsample_bytree=trial.suggest_float('colsample_bytree', 0.6, 1.0),
-            reg_alpha=trial.suggest_float('reg_alpha', 0.1, 10.0, log=True),
-            reg_lambda=trial.suggest_float('reg_lambda', 0.1, 10.0, log=True),
-            eval_metric='mlogloss', random_state=42, use_label_encoder=False
-        )
-    else:  # ExtraTrees or RandomForest
-        clf_class = ExtraTreesClassifier if "ExtraTrees" in best_baseline_name else RandomForestClassifier
-        clf = clf_class(
-            n_estimators=trial.suggest_int('n_estimators', 100, 400),
-            max_depth=trial.suggest_int('max_depth', 5, 20),
-            min_samples_split=trial.suggest_int('min_samples_split', 2, 10),
-            min_samples_leaf=trial.suggest_int('min_samples_leaf', 1, 5),
-            criterion=trial.suggest_categorical('criterion', ['gini', 'entropy']),
-            random_state=42
-        )
+    clf = XGBClassifier(
+        n_estimators=trial.suggest_int('n_estimators', 100, 300),
+        max_depth=trial.suggest_int('max_depth', 3, 8),
+        learning_rate=trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
+        subsample=trial.suggest_float('subsample', 0.6, 1.0),
+        colsample_bytree=trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        reg_alpha=trial.suggest_float('reg_alpha', 0.1, 10.0, log=True),
+        reg_lambda=trial.suggest_float('reg_lambda', 0.1, 10.0, log=True),
+        eval_metric='mlogloss', random_state=42, use_label_encoder=False
+    )
         
     num_features = trial.suggest_int('num_features', 5, 12)
     rfe_opt = RFE(estimator=ExtraTreesClassifier(n_estimators=50, random_state=42), n_features_to_select=num_features)
@@ -316,8 +296,7 @@ rfe_final = RFE(estimator=ExtraTreesClassifier(n_estimators=50, random_state=42)
 if "XGBoost" in best_baseline_name:
     final_clf = XGBClassifier(**best_params, eval_metric='mlogloss', random_state=42, use_label_encoder=False)
 else:
-    clf_class = ExtraTreesClassifier if "ExtraTrees" in best_baseline_name else RandomForestClassifier
-    final_clf = clf_class(**best_params, random_state=42)
+    final_clf = XGBClassifier(**best_params, eval_metric='mlogloss', random_state=42, use_label_encoder=False)
 
 final_pipe = ImbPipeline([
     ('sampler', CTGANSampler(epochs=100)), # high-fidelity generator for final train
@@ -441,29 +420,48 @@ if hasattr(clf_only, 'feature_importances_'):
     importances = pd.Series(clf_only.feature_importances_, index=selected_feature_names).sort_values(ascending=False)
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 8: LEARNING CURVES & CONVERGENCE                                ║
+# ║  STEP 8: LEARNING CURVES & CONVERGENCE (EPOCHS & EARLY STOPPING)      ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
-print("\n  [8/9] Generating Training vs. Validation Convergence Curves...")
-from sklearn.model_selection import learning_curve
+print("\n  [8/9] Generating Training vs. Validation Convergence Curves per Epoch...")
 try:
-    train_sizes, train_scores, val_scores = learning_curve(
-        final_pipe, X_train.values, y_train, cv=StratifiedKFold(n_splits=3, shuffle=True), 
-        n_jobs=1, train_sizes=np.linspace(0.3, 1.0, 5), scoring='f1_weighted', random_state=42
+    xgb_es = XGBClassifier(**best_params, eval_metric='mlogloss', early_stopping_rounds=15, random_state=42, use_label_encoder=False)
+    
+    # We use a 4:1 strict split (like one fold of K-Fold) to track the epoch loss
+    X_train_fold, X_val_fold, y_train_fold, y_val_fold = train_test_split(
+        X_train_reduced, y_train, test_size=0.25, stratify=y_train, random_state=42
     )
+    
+    # Apply CTGAN only to the training portion of this split to prevent leakage
+    sampler_es = CTGANSampler(epochs=100)
+    X_train_fold_res, y_train_fold_res = sampler_es.fit_resample(X_train_fold, y_train_fold)
+    
+    # Fit XGBoost with eval_set
+    eval_set = [(X_train_fold_res, y_train_fold_res), (X_val_fold, y_val_fold)]
+    xgb_es.fit(X_train_fold_res, y_train_fold_res, eval_set=eval_set, verbose=False)
+    
+    results = xgb_es.evals_result()
+    epochs = len(results['validation_0']['mlogloss'])
+    x_axis = range(0, epochs)
+    
     plt.figure(figsize=(10, 6))
-    plt.plot(train_sizes, np.mean(train_scores, axis=1), 'o-', label='Training Score', color='blue')
-    plt.plot(train_sizes, np.mean(val_scores, axis=1), 'o-', label='Validation Score', color='orange')
-    plt.title('Learning Convergence Curve (F1-Weighted)', fontsize=14, fontweight='bold')
-    plt.xlabel('Training Set Size', fontweight='bold')
-    plt.ylabel('F1 Weighted Score', fontweight='bold')
-    plt.legend(loc="best")
+    plt.plot(x_axis, results['validation_0']['mlogloss'], label='Train Loss (CTGAN Balanced)', linewidth=2)
+    plt.plot(x_axis, results['validation_1']['mlogloss'], label='Validation Loss (Held-Out)', linewidth=2)
+    
+    # Stop line
+    best_epoch = xgb_es.best_iteration
+    plt.axvline(best_epoch, color='red', linestyle='--', label=f'Early Stopping (Epoch {best_epoch})')
+    
+    plt.title('Training vs Validation Loss per Epoch (XGBoost)', fontsize=14, fontweight='bold')
+    plt.xlabel('Epochs (Boosting Rounds)', fontweight='bold')
+    plt.ylabel('Multi-Class Log Loss', fontweight='bold')
+    plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, '04_learning_convergence_curve.png'), bbox_inches='tight')
     plt.close()
-    print("        [SAVED] Learning Curve generated.")
+    print(f"        [SAVED] Epoch Loss Curve generated (Stopped at epoch {best_epoch}).")
 except Exception as e:
-    print(f"        Skipping Learning Curve due to error: {e}")
+    print(f"        Skipping Epoch Loss Curve due to error: {e}")
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  STEP 9: SHAP EXPLAINABILITY (SUMMARY & DEPENDENCY)                   ║

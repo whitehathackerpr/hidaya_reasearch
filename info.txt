@@ -12,3 +12,11 @@ ROC-AUC
 Think about regularization techniques
 7. Plot Feature Importance graphs
 8. If the metrics are okay, then move to the SHAP-dependency plots
+
+Notes:
+Starting with SMOTE -> SMOTENC -> Class Weight Balance -> RandomOverSampler -> SMOTE-Tomek -> **CTGAN/WGAN** (Only if all fail)
+For Hyperparameter Tuning -> **Bayesian Optimisation**
+Cross-validation -> **k-fold**
+Evaluation metrics -> **f1-score, recall, precision, ROC-AUC**
+Overfitting -> Regularization techniques
+Feature importance -> Permutation ImportanceS

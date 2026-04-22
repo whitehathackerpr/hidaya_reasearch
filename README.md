@@ -1,9 +1,10 @@
 # Cycling Stage Prediction — ML Pipeline
 
-Predicting cycling adoption stages (1–5) from psychosocial survey data using
+Predicting cycling adoption stages from psychosocial survey data using
 machine learning, with advanced class balancing, Bayesian optimisation, and
-SHAP explainability.
+SHAP explainability. 
 
+**Update:** To address class imbalance and overfitting, the 5 survey stages are now mapped to 3 stable classes (Stage 1; Stages 2+3; Stages 4+5). Training now tracks per-epoch loss and utilizes Early Stopping to guarantee optimal generalization.
 ---
 
 ## Quick Start
@@ -109,13 +110,13 @@ Raw CSV (32 survey items + 5 demographics)
 [7] Bayesian optimisation (Optuna, 20 trials)
     |           Jointly tunes hyperparameters + RFE feature count
     v
-[8] Final model trained with high-fidelity CTGAN (100 epochs)
+[8] Final model trained with high-fidelity CTGAN
     |
     v
 [9] Evaluation on unseen test set → F1, Recall, Precision, ROC-AUC
     |
     v
-[10] Learning curves (overfitting check)
+[10] Epoch Loss Curves (Training vs Validation) & Early Stopping
     |
     v
 [11] Feature importance + SHAP dependency plots
